@@ -18,6 +18,7 @@ class User(db.Model):
     telp = db.Column(db.String, unique=True, nullable=False)
     email = db.Column(db.String, unique=True, nullable=False)
     password = db.Column(db.String, nullable=False)
+    list_transaction = db.relationship("Transaction", backref="user")
 
     def __repr__(self):
         return f"<User{self.id}>"
@@ -51,8 +52,8 @@ class Book(db.Model):
     id = db.Column(db.String, unique=True, primary_key=True, nullable=False)
     name = db.Column(db.String, nullable=False)
     genre_id = db.Column(db.String, db.ForeignKey('genre.id'), nullable=False)
-    author_id = db.Column(db.String, db.ForeignKey(
-        'author.id'), nullable=False)
+    author_id = db.Column(db.String, db.ForeignKey('author.id'), nullable=False)
+    list_transaction = db.relationship("Transaction", backref="book")
 
     def __repr__(self):
         return f"<Book{self.id}>"
@@ -65,9 +66,9 @@ class Transaction(db.Model):
     book_id = db.Column(db.String, db.ForeignKey('book.id'), nullable=False)
     user_id = db.Column(db.String, db.ForeignKey('user.id'), nullable=False)
     status = db.Column(db.String, nullable=False)
+    requested_date = db.Column(db.DateTime, nullable=False)
     admin_approve = db.Column(db.String, nullable=True) 
     admin_return = db.Column(db.String, nullable=True)
-    requested_date = db.Column(db.DateTime, nullable=False)
     approve_date = db.Column(db.DateTime, nullable=True)
     return_date = db.Column(db.DateTime, nullable=True)
 
@@ -123,6 +124,47 @@ def get_book():
             "genre_name": b.genre.name
         }
         return {"message": "success", "book": response}
+    return {"message": "invalid request"}
+
+@app.get('/transactions')
+def get_transactions():
+    if login() == "admin":
+        transaction = Transaction.query.all()
+        results = [
+            {
+                "id": i.id,
+                "book_name": i.book.name,
+                "member_name": i.user.name,
+                "status": i.status,
+                "requested_date": i.requested_date,
+                "approve_admin": i.admin_approve,
+                "approved_date": i.approve_date,
+                "return_admin": i.admin_return,
+                "returned_date": i.return_date
+            }for i in transaction]
+        return jsonify(results)
+    return {"message": "invalid request"}
+
+@app.get('/transaction')
+def get_transaction():
+    if login() == "admin":
+        data_id = request.args.get("id")
+        i = Transaction.query.get(data_id)
+        if not i:
+            return {"message": "invalid request"}
+        
+        response = {
+            "id": i.id,
+            "book_name": i.book.name,
+            "member_name": i.user.name,
+            "status": i.status,
+           "requested_date": i.requested_date,
+            "approve_admin": i.admin_approve,
+            "approved_date": i.approve_date,
+            "return_admin": i.admin_return,
+            "returned_date": i.return_date,
+        }
+        return {"message": "success", "transaction": response}
     return {"message": "invalid request"}
 
 
@@ -392,8 +434,8 @@ def delete_user():
 def post_transaction():
     if login() == "member":
         data = request.get_json()
-        email = request.authorization.username
-        member = User.query.filter_by(email=email).first_or_404()
+        email_user = request.authorization.username
+        member = User.query.filter_by(email=email_user).first_or_404()
         if any(
             [
                 not "id" in data,
@@ -416,6 +458,51 @@ def post_transaction():
 
 @app.put('/approve')
 def put_approve():
-    return
+    if login()== "admin":
+        data_id = request.args.get("id")
+        b = Transaction.query.get(data_id)
+        email_user= request.authorization.username
+        admin = User.query.filter_by(email=email_user).first_or_404()
+        if not b :
+            return {"error": "invalid request"}
+        
+        # default value
+        b.admin_approve = admin.name
+        b.status = "approved"
+        b.approve_date = datetime.today()
+        db.session.commit()
+        return {"message": f"transaction with id {b.id} successfully approved"}
+    return {"message": "invalid request"}
+
+@app.put('/return')
+def put_return():
+    if login()== "admin":
+        data_id = request.args.get("id")
+        b = Transaction.query.get(data_id)
+        email_user= request.authorization.username
+        admin = User.query.filter_by(email=email_user).first_or_404()
+        if not b :
+            return {"error": "invalid request"}
+        
+        # default value
+        b.admin_approve = admin.name
+        b.status = "returned"
+        b.approve_date = datetime.today()
+        db.session.commit()
+        return {"message": f"transaction with id {b.id} successfully returned"}
+    return {"message": "invalid request"}
+
+@app.delete('/transaction')
+def delete_transaction():
+    if login()== "admin":
+        data_id = request.args.get("id")
+        b = Transaction.query.get(data_id)
+        if not b :
+            return {"error": "invalid request"}
+        db.session.delete(b)
+        db.session.commit()
+        return {"message": f"transaction with id {b.id} successfully deleted"}
+
+
 if (__name__) == ("__main__"):
     app.run(debug=True)
