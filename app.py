@@ -67,10 +67,10 @@ class Transaction(db.Model):
     user_id = db.Column(db.String, db.ForeignKey('user.id'), nullable=False)
     status = db.Column(db.String, nullable=False)
     requested_date = db.Column(db.DateTime, nullable=False)
-    admin_approve = db.Column(db.String, nullable=True) 
-    admin_return = db.Column(db.String, nullable=True)
-    approve_date = db.Column(db.DateTime, nullable=True)
-    return_date = db.Column(db.DateTime, nullable=True)
+    approve_admin = db.Column(db.String, nullable=True) 
+    approved_date = db.Column(db.DateTime, nullable=True)
+    return_admin = db.Column(db.String, nullable=True)
+    returned_date = db.Column(db.DateTime, nullable=True)
 
     def __repr__(self):
         return f"<Transaction{self.id}>"
@@ -137,10 +137,10 @@ def get_transactions():
                 "member_name": i.user.name,
                 "status": i.status,
                 "requested_date": i.requested_date,
-                "approve_admin": i.admin_approve,
-                "approved_date": i.approve_date,
-                "return_admin": i.admin_return,
-                "returned_date": i.return_date
+                "approve_admin": i.approve_admin,
+                "approved_date": i.approved_date,
+                "return_admin": i.return_admin,
+                "returned_date": i.returned_date
             }for i in transaction]
         return jsonify(results)
     return {"message": "invalid request"}
@@ -159,10 +159,10 @@ def get_transaction():
             "member_name": i.user.name,
             "status": i.status,
            "requested_date": i.requested_date,
-            "approve_admin": i.admin_approve,
-            "approved_date": i.approve_date,
-            "return_admin": i.admin_return,
-            "returned_date": i.return_date,
+            "approve_admin": i.approve_admin,
+            "approved_date": i.approved_date,
+            "return_admin": i.return_admin,
+            "returned_date": i.returned_date
         }
         return {"message": "success", "transaction": response}
     return {"message": "invalid request"}
@@ -467,9 +467,9 @@ def put_approve():
             return {"error": "invalid request"}
         
         # default value
-        b.admin_approve = admin.name
+        b.approve_admin = admin.name
         b.status = "approved"
-        b.approve_date = datetime.today()
+        b.approved_date = datetime.today()
         db.session.commit()
         return {"message": f"transaction with id {b.id} successfully approved"}
     return {"message": "invalid request"}
@@ -480,14 +480,14 @@ def put_return():
         data_id = request.args.get("id")
         b = Transaction.query.get(data_id)
         email_user= request.authorization.username
-        admin = User.query.filter_by(email=email_user).first_or_404()
+        admin = User.query.filter_by(email=email_user).first()
         if not b :
             return {"error": "invalid request"}
         
         # default value
-        b.admin_approve = admin.name
+        b.return_admin = admin.name
         b.status = "returned"
-        b.approve_date = datetime.today()
+        b.returned_date = datetime.today()
         db.session.commit()
         return {"message": f"transaction with id {b.id} successfully returned"}
     return {"message": "invalid request"}
